@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>HLS Player</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body class="background">
+  <div class="title">
+    HLS PLAYER
+  </div>
+
+  <div class="container form-container">
+    <label for="playlist" class="form-label">Select Playlist:</label>
+    <select id="playlist" class="form-select">
+      <option value="" selected>Select Playlist</option>
+      <option value="https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8">Tears Of Steel</option>
+      <option value="HLS/BigBuckBunny.m3u8">Big Buck Bunny</option>
+    </select>
+    <p>OR</p>
+    <label for="playlist-url" class="form-label">Enter Playlist URL:</label>
+    <input type="text" class="form-control" id="playlist-url" placeholder="Enter playlist URL">
+    <button id="load-btn" class="btn btn-lg load-btn">Load Playlist</button>
+  </div>
+
+  <div id="video-view">
+  <div id="bitrate-container"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-8">
+        <div class="video-container" id="video-container">
+          <video id="video" controls></video>
+        </div>
+      </div>
+      <div class="col-md-4" id="video-info">
+        <h3>Video information:</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class ="container requests-container">
+    <h1>Player requests</h1>
+    <div id="request-info">
+    </div>
+  </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+  <script>
+    // HLS Player
+    const video = document.getElementById('video');
+    const videoInfo = document.getElementById('video-info');
+    const requestInfo = document.getElementById('request-info');
+    const bitrateContainer = document.getElementById('bitrate-container');
+    const playlistSelector = document.getElementById('playlist');
+    const customUrlInput = document.getElementById('playlist-url');
+    const loadBtn = document.getElementById('load-btn');
+    const videoView = document.getElementById('video-view');
+
+    const hls = new Hls();
+    hls.attachMedia(video);
+
+    loadBtn.addEventListener('click', () => {
+      let playlistUrl;
+      if (customUrlInput.value) {
+        playlistUrl = customUrlInput.value;
+      } else {
+        playlistUrl = playlistSelector.value;
+      }
+
+      if (playlistUrl) {
+        hls.loadSource(playlistUrl);
+      }
+
+    });
+
+    playlistSelector.addEventListener('change', () => {
+      const playlistUrl = playlistSelector.value;
+      customUrlInput.value = '';
+      videoInfo.innerHTML = `<h3>
+        Video information:<br>
+      </h3>`;
+      hls.loadSource(playlistUrl);
+    });
+
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+
+        const levels = hls.levels;
+        const bitrateButtons = levels.map((level, index) => {
+        const bitrate = Math.round(level.bitrate / 1000);
+        videoView.style.display = "block";
+        let offset = requestInfo.offsetTop;
+        window.scrollTo({ top: offset, behavior: "smooth" });
+        return `<button class="btn btn-bitrate" data-level="${index}">${bitrate} kbps</button>`;
+      });
+
+      bitrateContainer.innerHTML = bitrateButtons.join('');
+
+      const bitrateBtns = document.querySelectorAll('.btn-bitrate');
+      bitrateBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const levelIndex = parseInt(btn.getAttribute('data-level'));
+          hls.nextLevel = levelIndex;
+        });
+      });
+
+      video.play();
+    });
+
+    hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+      const level = hls.levels[data.level];
+      const bitrate = level.bitrate / 1000;
+      const height = level.height;
+      const width = level.width;
+      const videoCodec = level.videoCodec;
+      const audioCodec = level.audioCodec;
+
+
+      videoInfo.innerHTML = `<h3>
+        Video information:<br>
+        </h3>
+        <h4>
+        Bitrate: ${bitrate} kbps<br>
+        Height: ${height}px<br>
+        Width: ${width}px<br>
+        Video Codec: ${videoCodec}<br>
+        Audio Codec: ${audioCodec}<br>
+      </h4>`;
+    });
+
+    hls.on(Hls.Events.FRAG_LOADING, (_, data) => {
+      const requestUrl = data.frag.url;
+      requestInfo.innerHTML += `${requestUrl}<br>`;
+      requestInfo.scrollTop = requestInfo.scrollHeight;
+    });
+  </script>
+</body>
+</html>
